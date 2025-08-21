@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资源甘特图系统</title>
+  <link rel="stylesheet" href="gant.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header">
+    <div class="header-content">
+      <h1><i class="fas fa-chart-gantt"></i> 资源甘特图</h1>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="loadData()">
+          <i class="fas fa-sync-alt"></i> 刷新数据
+        </button>
+        <button class="btn btn-success" onclick="saveDataToServer()">
+          <i class="fas fa-save"></i> 保存数据
+        </button>
+        <button class="btn btn-info" onclick="toggleInvertColors()">
+          <i class="fas fa-adjust"></i> 主题切换
+        </button>
+        <button class="btn btn-warning" onclick="showAddTaskModal()">
+          <i class="fas fa-plus"></i> 添加任务
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 统计卡片 -->
+  <div class="stats-container">
+    <div class="stat-card" onclick="showResourceManager()" style="cursor: pointer;">
+      <i class="fas fa-users"></i>
+      <div class="stat-info">
+        <h3 id="resourceCount">0</h3>
+        <p>资源总数</p>
+      </div>
+    </div>
+    <div class="stat-card" onclick="showTaskManager()" style="cursor: pointer;">
+      <i class="fas fa-tasks"></i>
+      <div class="stat-info">
+        <h3 id="taskCount">0</h3>
+        <p>任务总数</p>
+      </div>
+    </div>
+    <div class="stat-card" onclick="showDateManager()" style="cursor: pointer;">
+      <i class="fas fa-calendar-alt"></i>
+      <div class="stat-info">
+        <h3 id="dateRange">-</h3>
+        <p>项目周期</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 甘特图容器 -->
+  <div class="gantt-wrapper">
+    <div class="gantt-container">
+      <div class="resource-column">
+        <table class="resource-table">
+          <thead>
+            <tr>
+              <th class="resource-header">
+                <i class="fas fa-user-tie"></i> 资源
+              </th>
+            </tr>
+          </thead>
+          <tbody id="resourceBody"></tbody>
+        </table>
+      </div>
+      <div class="date-column">
+        <table id="dateTable"></table>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- 状态消息 -->
+  <div id="statusMessage" class="status-message"></div>
+
+  <!-- 任务详情弹窗 -->
+  <div id="taskModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-edit"></i> 任务详情</h3>
+        <span class="close" onclick="closeTaskModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="taskDetailForm">
+          <div class="form-group">
+            <label><i class="fas fa-tag"></i> 任务名称</label>
+            <input type="text" id="detailTaskName" placeholder="请输入任务名称" required>
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> 负责人</label>
+            <select id="detailTaskResource" required></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><i class="fas fa-play-circle"></i> 开始日期</label>
+              <input type="date" id="detailTaskStart" required>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-stop-circle"></i> 结束日期</label>
+              <input type="date" id="detailTaskEnd" required>
+            </div>
+          </div>
+          <input type="hidden" id="detailTaskId">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" onclick="saveTaskDetail()">
+          <i class="fas fa-check"></i> 保存修改
+        </button>
+        <button class="btn btn-danger" onclick="deleteCurrentTask()">
+          <i class="fas fa-trash"></i> 删除任务
+        </button>
+        <button class="btn btn-secondary" onclick="closeTaskModal()">
+          <i class="fas fa-times"></i> 取消
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加/编辑任务弹窗 -->
+  <div id="taskFormModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="taskFormTitle"><i class="fas fa-plus"></i> 添加任务</h3>
+        <span class="close" onclick="closeTaskFormModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="taskForm">
+          <div class="form-group">
+            <label><i class="fas fa-tag"></i> 任务名称</label>
+            <input type="text" id="taskName" placeholder="请输入任务名称" required>
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-user"></i> 负责人</label>
+            <select id="taskResource" required></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label><i class="fas fa-play-circle"></i> 开始日期</label>
+              <input type="date" id="taskStart" required>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-stop-circle"></i> 结束日期</label>
+              <input type="date" id="taskEnd" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-palette"></i> 任务颜色</label>
+            <input type="color" id="taskColor" value="#3498db">
+          </div>
+          <div class="form-group">
+            <label><i class="fas fa-info-circle"></i> 任务描述</label>
+            <textarea id="taskInfo" placeholder="请输入任务描述" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" onclick="saveTask()">
+          <i class="fas fa-check"></i> 保存
+        </button>
+        <button class="btn btn-secondary" onclick="closeTaskFormModal()">
+          <i class="fas fa-times"></i> 取消
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 资源管理弹窗 -->
+  <div id="resourceModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-users"></i> 资源管理</h3>
+        <span class="close" onclick="closeResourceModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label><i class="fas fa-plus"></i> 添加新资源</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="newResource" placeholder="请输入资源名称" style="flex: 1;">
+            <button class="btn btn-success" onclick="addResource()">
+              <i class="fas fa-plus"></i> 添加
+            </button>
+          </div>
+        </div>
+        <div id="resourceList">
+          <label><i class="fas fa-list"></i> 资源列表</label>
+          <div id="resourceItems"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeResourceModal()">
+          <i class="fas fa-times"></i> 关闭
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务管理弹窗 -->
+  <div id="taskManagerModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-tasks"></i> 任务管理</h3>
+        <span class="close" onclick="closeTaskManager()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 1rem;">
+          <button class="btn btn-success" onclick="showAddTaskModal()">
+            <i class="fas fa-plus"></i> 添加新任务
+          </button>
+        </div>
+        <div id="taskList">
+          <label><i class="fas fa-list"></i> 任务列表</label>
+          <div id="taskItems" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTaskManager()">
+          <i class="fas fa-times"></i> 关闭
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日期管理弹窗 -->
+  <div id="dateModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-calendar-alt"></i> 项目周期管理</h3>
+        <span class="close" onclick="closeDateModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <form id="dateForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label><i class="fas fa-play-circle"></i> 项目开始日期</label>
+              <input type="date" id="projectStart" required>
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-stop-circle"></i> 项目结束日期</label>
+              <input type="date" id="projectEnd" required>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" onclick="saveDateRange()">
+          <i class="fas fa-check"></i> 保存修改
+        </button>
+        <button class="btn btn-secondary" onclick="closeDateModal()">
+          <i class="fas fa-times"></i> 取消
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="gant.js"></script>
+</body>
+</html>
